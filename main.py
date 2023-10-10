@@ -138,6 +138,18 @@ def get_history(skip: int = 0, limit: int = 10, db: SessionLocal = Depends(get_d
     history = db.query(History).offset(skip).limit(limit).all()
     return history
 
+@app.delete("/history/{history_id}")
+def delete_history(history_id: int, db: SessionLocal = Depends(get_db)):
+    history_entry = db.query(History).filter(History.id == history_id).first()
+
+    if not history_entry:
+        raise HTTPException(status_code=404, detail="History entry not found")
+
+    db.delete(history_entry)
+    db.commit()
+    return {"message": "History entry successfully deleted"}
+
+
 @app.post("/login")
 def login(user_login: UserLogin, db: SessionLocal = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_login.email).first()
