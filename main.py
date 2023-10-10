@@ -11,6 +11,7 @@ import tensorflow as tf
 import uvicorn 
 from datetime import datetime
 from sqlalchemy import DateTime
+import pytz
 
 # FastAPI setup
 app = FastAPI()
@@ -36,6 +37,11 @@ Base = declarative_base()
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
+def get_sri_jayawardenapura_kotte_time():
+    utc_now = datetime.now(pytz.utc)
+    sri_jayawardenapura_kotte_time = utc_now.astimezone(pytz.timezone('Asia/Colombo'))
+    return sri_jayawardenapura_kotte_time
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -50,7 +56,8 @@ class History(Base):
     id = Column(Integer, primary_key=True, index=True)
     location = Column(String, index=True)
     detection_class = Column(String, index=True)
-    time = Column(DateTime, default=datetime.utcnow)
+    time = Column(DateTime, default=get_sri_jayawardenapura_kotte_time)
+
 
 class HistoryCreate(BaseModel):
     location: str
@@ -59,6 +66,7 @@ class HistoryCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
