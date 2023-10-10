@@ -9,6 +9,8 @@ from io import BytesIO
 from PIL import Image
 import tensorflow as tf
 import uvicorn 
+from datetime import datetime
+from sqlalchemy import DateTime
 
 # FastAPI setup
 app = FastAPI()
@@ -34,6 +36,21 @@ class User(Base):
     hashed_password = Column(String)
 
 Base.metadata.create_all(bind=engine)
+
+class History(Base):
+    __tablename__ = "history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location = Column(String, index=True)
+    detection_class = Column(String, index=True)
+    time = Column(DateTime, default=datetime.utcnow)
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+    
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 # Dependency for database session
 def get_db():
@@ -90,9 +107,8 @@ def read_file_as_image(data) -> np.ndarray:
         return image
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid image file")
-
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(file: UploadFile = File(...), location: str = "", db: SessionLocal = Depends(get_db)):
     image = read_file_as_image(await file.read())
     img_batch = np.expand_dims(image, 0)
 
@@ -100,11 +116,31 @@ async def predict(file: UploadFile = File(...)):
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
     confidence = np.max(predictions[0])
 
+    # Store the prediction in history
+    history_entry = History(location=location, detection_class=predicted_class)
+    db.add(history_entry)
+    db.commit()
+
     response = {
         'class': predicted_class,
         'confidence': float(confidence),
     }
     return response
+
+@app.get("/history")
+def get_history(skip: int = 0, limit: int = 10, db: SessionLocal = Depends(get_db)):
+    # Retrieve the latest `limit` history entries, skipping the first `skip` entries.
+    history = db.query(History).offset(skip).limit(limit).all()
+    return history
+
+@app.post("/login")
+def login(user_login: UserLogin, db: SessionLocal = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user_login.email).first()
+    
+    if not db_user or not verify_password(user_login.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    return {"message": "Login successful!"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8001)
