@@ -24,7 +24,14 @@ app.add_middleware(
 )
 
 # Database setup
-DATABASE_URL = "mysql+mysqlconnector://root:1234@localhost:3306/butterfly"
+#DATABASE_URL = "mysql+mysqlconnector://root:1234@localhost:3306/butterfly"
+DATABASE_URL = "mysql+mysqlconnector://butterflydb:1080#mike@butterflydb.mysql.database.azure.com:3306/butterfly?ssl_ca=./model/BaltimoreCyberTrustRoot.crt.pem"
+#DATABASE_URL = "mysql+mysqlconnector://butterflydb:123%40gmail.com@butterflydb.mysql.database.azure.com:3306/butterfly?ssl_ca=./path_to_your_cert/BaltimoreCyberTrustRoot.crt.pem"
+
+
+
+
+
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
