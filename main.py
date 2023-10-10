@@ -45,10 +45,14 @@ class History(Base):
     detection_class = Column(String, index=True)
     time = Column(DateTime, default=datetime.utcnow)
 
+class HistoryCreate(BaseModel):
+    location: str
+    detection_class: str
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-    
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
@@ -107,24 +111,25 @@ def read_file_as_image(data) -> np.ndarray:
         return image
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid image file")
+    
 @app.post("/predict")
-async def predict(file: UploadFile = File(...), location: str = "", db: SessionLocal = Depends(get_db)):
+async def predict(file: UploadFile = File(...)):
     image = read_file_as_image(await file.read())
     img_batch = np.expand_dims(image, 0)
+    
+    # Debug information
+    print(f"Input data shape: {img_batch.shape}, dtype: {img_batch.dtype}")
+    print(f"Model's expected input shape: {MODEL.input_shape}")
 
     predictions = MODEL.predict(img_batch)
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
     confidence = np.max(predictions[0])
 
-    # Store the prediction in history
-    history_entry = History(location=location, detection_class=predicted_class)
-    db.add(history_entry)
-    db.commit()
-
     response = {
         'class': predicted_class,
         'confidence': float(confidence),
     }
+
     return response
 
 @app.get("/history")
@@ -141,6 +146,13 @@ def login(user_login: UserLogin, db: SessionLocal = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     return {"message": "Login successful!"}
+
+@app.post("/save-history")
+def save_history(history: HistoryCreate, db: SessionLocal = Depends(get_db)):
+    history_entry = History(location=history.location, detection_class=history.detection_class)
+    db.add(history_entry)
+    db.commit()
+    return {"message": "History successfully saved"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8001)
