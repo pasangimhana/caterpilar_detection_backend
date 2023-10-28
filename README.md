@@ -117,7 +117,7 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 
 ## Authors
 
-- **Your Name** - *Initial work* - [YourGithubUsername](https://github.com/YourGithubUsername)
+- **thellmike* - *Initial work* - [YourGithubUsername](https://github.com/thellmike)
 
 See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
