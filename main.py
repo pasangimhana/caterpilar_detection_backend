@@ -13,6 +13,9 @@ from datetime import datetime
 from sqlalchemy import DateTime
 import pytz
 
+
+
+
 # FastAPI setup
 app = FastAPI()
 
@@ -26,7 +29,7 @@ app.add_middleware(
 
 # Database setup
 #DATABASE_URL = "mysql+mysqlconnector://root:1234@localhost:3306/butterfly"
-DATABASE_URL = "mysql+mysqlconnector://butterflydb:1080#mike@butterflydb.mysql.database.azure.com:3306/butterfly?ssl_ca=./model/BaltimoreCyberTrustRoot.crt.pem"
+DATABASE_URL = "mysql+mysqlconnector://butterflydb:1080#mike@butterflydb.mysql.database.azure.com:3306/butterfly?ssl_ca=./model/DigiCertGlobalRootCA.crt.pem"
 #DATABASE_URL = "mysql+mysqlconnector://butterflydb:123%40gmail.com@butterflydb.mysql.database.azure.com:3306/butterfly?ssl_ca=./path_to_your_cert/BaltimoreCyberTrustRoot.crt.pem"
 
 
@@ -57,6 +60,7 @@ class History(Base):
     location = Column(String, index=True)
     detection_class = Column(String, index=True)
     time = Column(DateTime, default=get_sri_jayawardenapura_kotte_time)
+
 
 
 class HistoryCreate(BaseModel):
@@ -109,9 +113,9 @@ def register(user: UserCreate, db: SessionLocal = Depends(get_db)):
     return {"message": "User successfully registered"}
 
 # TensorFlow and Image processing setup
-CLASS_NAMES = ["Common_Indian_Crow", "Crimson Rose", "Common Mormon", 
-               "Common Mime Swallowtail", "Ceylon Blue Glassy Tiger"]
-MODEL = tf.keras.models.load_model('./model/Model.h5')
+CLASS_NAMES = ["Common_Indian_Crow", "Common_Jay", "Common_Mime_Swallowtail", 
+               "Common_Rose", "Cylon_Blue_Glass_Tiger","Great_eggfly","Lemon_Pansy","Tailed_Jay"]
+MODEL = tf.keras.models.load_model('./model/trained_model2.h5')
 
 @app.get("/ping")
 def ping():
@@ -137,8 +141,14 @@ async def predict(file: UploadFile = File(...)):
     print(f"Model's expected input shape: {MODEL.input_shape}")
 
     predictions = MODEL.predict(img_batch)
-    predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
+    predicted_class_index = np.argmax(predictions[0])
     confidence = np.max(predictions[0])
+
+    # Check against the confidence_threshold
+    if confidence < 0.7:
+        predicted_class = "Unknown Object"
+    else:
+        predicted_class = CLASS_NAMES[predicted_class_index]
 
     response = {
         'class': predicted_class,
@@ -176,10 +186,17 @@ def login(user_login: UserLogin, db: SessionLocal = Depends(get_db)):
 
 @app.post("/save-history")
 def save_history(history: HistoryCreate, db: SessionLocal = Depends(get_db)):
-    history_entry = History(location=history.location, detection_class=history.detection_class)
-    db.add(history_entry)
-    db.commit()
-    return {"message": "History successfully saved"}
+    try:
+        history_entry = History(location=history.location, detection_class=history.detection_class)
+        db.add(history_entry)
+        db.commit()
+        return {"message": "History successfully saved"}
+    except Exception as e:
+        print(f"Error saving history: {e}")
+        raise HTTPException(status_code=500, detail="Error saving history")
+    
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8001)
